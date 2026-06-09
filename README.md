@@ -74,6 +74,39 @@ npm run lint
 npm run build
 ```
 
+## 部署
+
+后台使用 nginx 静态容器部署。本地脚本位于工作区根目录：
+
+```bash
+bash deploy_admin.sh
+```
+
+本地脚本会执行：
+
+1. `npm ci`
+2. `VITE_API_BASE_URL=... npm run build`
+3. 打包 `dist`、`Dockerfile`、`nginx.conf` 为 `admin.tar.gz`
+4. 上传到服务器 `/apps/simon_ledger/admin.tar.gz`
+
+上传完成后，本地脚本也会把服务器部署脚本同步到：
+
+```text
+/apps/simon_ledger/scripts/deploy_admin.sh
+```
+
+在服务器执行：
+
+```bash
+HOST_PORT=18082 bash /apps/simon_ledger/scripts/deploy_admin.sh
+```
+
+默认宿主机端口为 `18082`，可覆盖：
+
+```bash
+HOST_PORT=18083 bash deploy_admin_server.sh
+```
+
 ## 目录结构
 
 ```text
