@@ -1,29 +1,32 @@
-import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 
+import { EmptyState, ErrorState, LoadingState } from '../components/AsyncState';
 import { DataPanel } from '../components/DataPanel';
-import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { SearchField } from '../components/SearchField';
 import { StatusPill } from '../components/StatusPill';
-import { users } from '../lib/mockData';
+import { adminGet } from '../lib/api';
+import { formatDateTime } from '../lib/format';
+import type { AdminUserRecordResp, PageResponse } from '../lib/types';
 
 export function UsersPage() {
   const [query, setQuery] = useState('');
-  const filteredUsers = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) return users;
-    return users.filter((user) => {
-      return [user.nickname, user.account, user.uuid].some((value) =>
-        value.toLowerCase().includes(normalized),
-      );
-    });
-  }, [query]);
+  const users = useQuery({
+    queryKey: ['admin-users', query],
+    queryFn: () =>
+      adminGet<PageResponse<AdminUserRecordResp>>('/api/admin/users', {
+        keyword: query,
+        page: 1,
+        pageSize: 50,
+      }),
+  });
 
   return (
     <>
       <PageHeader
         title="用户管理"
-        description="用于搜索用户、检查账号状态和定位用户关联的账本。初版建议以查看为主，禁用和恢复操作接入后台审计后再开放。"
+        description="搜索用户、检查账号状态和定位用户关联的账本。初版以查看为主。"
         action={
           <div className="w-full sm:w-80">
             <SearchField
@@ -35,14 +38,16 @@ export function UsersPage() {
         }
       />
 
-      <DataPanel title="用户列表">
-        {filteredUsers.length === 0 ? (
-          <EmptyState
-            title="没有匹配的用户"
-            description="换一个昵称、账号或 UUID 试试。接入后台接口后，这里也会承接服务端搜索结果。"
-          />
-        ) : (
-          filteredUsers.map((user) => (
+      {users.isLoading && <LoadingState title="正在加载用户列表" />}
+      {users.isError && (
+        <ErrorState title="用户加载失败" message={users.error.message} />
+      )}
+      {users.data?.records.length === 0 && (
+        <EmptyState title="没有找到用户" message="换一个关键词再试。" />
+      )}
+      {users.data && users.data.records.length > 0 && (
+        <DataPanel title={`用户列表 · ${users.data.total}`}>
+          {users.data.records.map((user) => (
             <article
               key={user.uuid}
               className="grid gap-4 px-5 py-4 lg:grid-cols-[1.2fr_0.8fr_0.8fr_auto] lg:items-center"
@@ -64,19 +69,17 @@ export function UsersPage() {
                 </p>
               </div>
               <div className="flex items-center justify-between gap-4 lg:block lg:text-right">
-                <StatusPill
-                  tone={user.status === 'active' ? 'success' : 'danger'}
-                >
-                  {user.status === 'active' ? '正常' : '已禁用'}
+                <StatusPill tone={user.status === 1 ? 'success' : 'danger'}>
+                  {user.status === 1 ? '正常' : '已禁用'}
                 </StatusPill>
                 <p className="mt-0 font-mono text-xs text-slate-400 lg:mt-2">
-                  {user.lastSeenAt}
+                  {formatDateTime(user.updatedAt)}
                 </p>
               </div>
             </article>
-          ))
-        )}
-      </DataPanel>
+          ))}
+        </DataPanel>
+      )}
     </>
   );
 }

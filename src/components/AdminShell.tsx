@@ -4,12 +4,14 @@ import {
   List,
   Pulse,
   ShieldCheck,
+  SignOut,
   UserCircle,
   X,
 } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { useAuth } from '../lib/useAuth';
 
 const navItems = [
   { to: '/', label: '总览', icon: Gauge },
@@ -21,6 +23,7 @@ const navItems = [
 
 export function AdminShell() {
   const [open, setOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   return (
     <div className="min-h-[100dvh] bg-slate-50 text-ink-950">
@@ -76,6 +79,22 @@ export function AdminShell() {
               );
             })}
           </nav>
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-sm font-medium text-ink-950">
+              {user?.nickname ?? '后台管理员'}
+            </p>
+            <p className="mt-1 font-mono text-xs text-slate-500">
+              {user?.account}
+            </p>
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:text-rose-600 active:scale-[0.98]"
+            >
+              <SignOut size={16} />
+              退出登录
+            </button>
+          </div>
         </aside>
 
         <main className="min-w-0 px-4 py-5 sm:px-6 lg:px-8 lg:py-8">

@@ -23,30 +23,29 @@ Simon Ledger 的后台管理 Web。第一版定位为运维、客服和数据核
 - 审计：查看后台操作和同步异常日志。
 - 系统：查看 API 地址、服务健康、数据库和 Redis 状态。
 
-当前数据是前端 mock，页面结构和 API 客户端入口已预留。后续接入后端时优先使用 `/api/admin/*` 独立接口，避免复用普通 App 用户权限。
+当前页面已接入后端 `/api/admin/*` 独立接口。后台登录态与普通 App 用户登录态隔离，前端会保存后端返回的 Sa-Token，并在后续请求中使用 `simon-ledger` 请求头访问管理接口。
 
-## 推荐后台接口
+## 后端接口
 
 ```text
 POST /api/admin/auth/login
 POST /api/admin/auth/logout
 GET  /api/admin/auth/me
 
-GET  /api/admin/users
-GET  /api/admin/users/{userUuid}
-PUT  /api/admin/users/{userUuid}/status
-
-GET  /api/admin/ledgers
-GET  /api/admin/ledgers/{ledgerUuid}
-GET  /api/admin/ledgers/{ledgerUuid}/transactions
-GET  /api/admin/ledgers/{ledgerUuid}/changes
-
-GET  /api/admin/invites
-PUT  /api/admin/invites/{inviteUuid}/disable
-
+GET  /api/admin/dashboard
+GET  /api/admin/users?keyword=&page=&pageSize=
+GET  /api/admin/ledgers?keyword=&page=&pageSize=
 GET  /api/admin/audit-logs
 GET  /api/admin/system/health
 ```
+
+首次启用后台前，需要在 API 数据库执行：
+
+```text
+simon-ledger-api/sql/003_add_admin_console.sql
+```
+
+该 SQL 只创建 `admin_user` 和 `admin_operation_log`，不会默认写入管理员账号。首个管理员需要生成 BCrypt 密码 hash 后手动插入 `admin_user` 表。
 
 ## 本地运行
 
@@ -88,14 +87,34 @@ bash deploy_admin.sh
 2. `VITE_API_BASE_URL=... npm run build`
 3. 打包 `dist`、`Dockerfile`、`nginx.conf` 为 `admin.tar.gz`
 4. 上传到服务器 `/apps/simon_ledger/admin.tar.gz`
+5. 默认执行服务器上已有的 `/apps/simon_ledger/scripts/deploy_admin.sh`
 
-上传完成后，本地脚本也会把服务器部署脚本同步到：
+可用环境变量：
+
+```bash
+PROJECT_ROOT=/path/to/simon-ledger-admin
+REMOTE_USER=root
+REMOTE_HOST=simon996.com
+REMOTE_DIR=/apps/simon_ledger
+API_BASE_URL=https://ledger-api.simon996.com
+RUN_REMOTE_DEPLOY=true
+INSTALL_REMOTE_SCRIPT=false
+SERVER_SCRIPT_SOURCE=/path/to/deploy_admin_server.sh
+```
+
+默认情况下，本地不需要存在服务器部署脚本。如果需要从本地重新安装服务器部署脚本，再设置：
+
+```bash
+INSTALL_REMOTE_SCRIPT=true SERVER_SCRIPT_SOURCE=/path/to/deploy_admin_server.sh bash deploy_admin.sh
+```
+
+服务器部署脚本默认路径为：
 
 ```text
 /apps/simon_ledger/scripts/deploy_admin.sh
 ```
 
-在服务器执行：
+如果设置 `RUN_REMOTE_DEPLOY=false`，上传后可在服务器手动执行：
 
 ```bash
 HOST_PORT=18082 bash /apps/simon_ledger/scripts/deploy_admin.sh
@@ -114,7 +133,7 @@ src/
   App.tsx
   main.tsx
   components/       # 后台壳子、搜索框、状态标签、数据面板
-  lib/              # API 客户端、mock 数据、类型
+  lib/              # API 客户端、认证上下文、类型和格式化工具
   pages/            # 总览、用户、账本、审计、系统
   styles/           # Tailwind 入口
 ```
