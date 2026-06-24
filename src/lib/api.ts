@@ -65,8 +65,13 @@ export async function adminGet<T>(
   return adminRequest<T>(url.toString(), { method: 'GET', ...options });
 }
 
-export async function adminPost<T>(path: string, data?: unknown): Promise<T> {
+export async function adminPost<T>(
+  path: string,
+  data?: unknown,
+  options: AdminRequestOptions = {},
+): Promise<T> {
   return adminRequest<T>(path, {
+    ...options,
     method: 'POST',
     body: data === undefined ? undefined : JSON.stringify(data),
   });

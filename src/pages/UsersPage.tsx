@@ -8,15 +8,17 @@ import { SearchField } from '../components/SearchField';
 import { StatusPill } from '../components/StatusPill';
 import { adminGet } from '../lib/api';
 import { formatDateTime } from '../lib/format';
+import { useDebouncedValue } from '../lib/useDebouncedValue';
 import type { AdminUserRecordResp, PageResponse } from '../lib/types';
 
 export function UsersPage() {
   const [query, setQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query.trim(), 300);
   const users = useQuery({
-    queryKey: ['admin-users', query],
+    queryKey: ['admin-users', debouncedQuery],
     queryFn: () =>
       adminGet<PageResponse<AdminUserRecordResp>>('/api/admin/users', {
-        keyword: query,
+        keyword: debouncedQuery,
         page: 1,
         pageSize: 50,
       }),

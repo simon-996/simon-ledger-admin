@@ -8,6 +8,7 @@ import { SearchField } from '../components/SearchField';
 import { StatusPill } from '../components/StatusPill';
 import { adminGet } from '../lib/api';
 import { formatDateTime } from '../lib/format';
+import { useDebouncedValue } from '../lib/useDebouncedValue';
 import type { AdminLedgerRecordResp, PageResponse } from '../lib/types';
 
 type StatusTone = 'success' | 'warning' | 'danger' | 'neutral';
@@ -24,11 +25,12 @@ function ledgerStatus(status: string) {
 
 export function LedgersPage() {
   const [query, setQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query.trim(), 300);
   const ledgers = useQuery({
-    queryKey: ['admin-ledgers', query],
+    queryKey: ['admin-ledgers', debouncedQuery],
     queryFn: () =>
       adminGet<PageResponse<AdminLedgerRecordResp>>('/api/admin/ledgers', {
-        keyword: query,
+        keyword: debouncedQuery,
         page: 1,
         pageSize: 50,
       }),
