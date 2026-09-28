@@ -35,6 +35,8 @@ test('moves from the first server page to the next user page', async () => {
   </QueryClientProvider>);
 
   await waitFor(() => expect(screen.getByText('第一位用户')).toBeTruthy());
+  expect(screen.getByRole('link', { name: '删除第一位用户的云端账号' }).getAttribute('href'))
+    .toBe('/users/user-1/delete');
   fireEvent.click(screen.getByRole('button', { name: '下一页' }));
   await waitFor(() => expect(screen.getByText('第二位用户')).toBeTruthy());
   expect(requestedPages).toEqual(['1', '2']);

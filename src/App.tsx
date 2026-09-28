@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { AdminShell } from './components/AdminShell';
 import { AuditPage } from './pages/AuditPage';
+import { AccountDeletionPage } from './pages/AccountDeletionPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LedgersPage } from './pages/LedgersPage';
 import { SystemPage } from './pages/SystemPage';
@@ -30,6 +31,7 @@ export function App() {
       <Route element={<AdminShell />}>
         <Route index element={<DashboardPage />} />
         <Route path="users" element={<UsersPage />} />
+        <Route path="users/:userUuid/delete" element={<AccountDeletionPage />} />
         <Route path="ledgers" element={<LedgersPage />} />
         <Route path="audit" element={<AuditPage />} />
         <Route path="system" element={<SystemPage />} />

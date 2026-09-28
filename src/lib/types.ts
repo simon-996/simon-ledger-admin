@@ -75,3 +75,34 @@ export type PageResponse<T> = {
   total: number;
   records: T[];
 };
+
+export type DeletionSuccessor = {
+  userUuid: string;
+  nickname: string;
+  role: string;
+};
+
+export type DeletionLedger = {
+  uuid: string;
+  name: string;
+  deleted: boolean;
+  memberCount: number;
+  personCount: number;
+  transactionCount: number;
+  successors?: DeletionSuccessor[];
+};
+
+export type AccountDeletionPreview = {
+  userUuid: string;
+  nickname: string;
+  account: string;
+  fingerprint: string;
+  ownedLedgers: DeletionLedger[];
+  joinedLedgers: DeletionLedger[];
+};
+
+export type AccountDeletionRequest = {
+  fingerprint: string;
+  confirmUuid: string;
+  successors: Array<{ ledgerUuid: string; userUuid: string }>;
+};

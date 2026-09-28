@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { EmptyState, ErrorState, LoadingState } from '../components/AsyncState';
 import { DataPanel } from '../components/DataPanel';
@@ -29,7 +30,7 @@ export function UsersPage() {
     <>
       <PageHeader
         title="用户管理"
-        description="搜索用户、检查账号状态和定位用户关联的账本。初版以查看为主。"
+        description="搜索用户、检查账号状态，并预览关联数据后删除云端账号。"
         action={
           <div className="w-full sm:w-80">
             <SearchField
@@ -75,12 +76,21 @@ export function UsersPage() {
                 </p>
               </div>
               <div className="flex items-center justify-between gap-4 lg:block lg:text-right">
-                <StatusPill tone={user.status === 1 ? 'success' : 'danger'}>
-                  {user.status === 1 ? '正常' : '已禁用'}
-                </StatusPill>
-                <p className="mt-0 font-mono text-xs text-slate-400 lg:mt-2">
-                  {formatDateTime(user.updatedAt)}
-                </p>
+                <div>
+                  <StatusPill tone={user.status === 1 ? 'success' : 'danger'}>
+                    {user.status === 1 ? '正常' : '已禁用'}
+                  </StatusPill>
+                  <p className="mt-0 font-mono text-xs text-slate-400 lg:mt-2">
+                    {formatDateTime(user.updatedAt)}
+                  </p>
+                </div>
+                <Link
+                  to={`/users/${encodeURIComponent(user.uuid)}/delete`}
+                  aria-label={`删除${user.nickname}的云端账号`}
+                  className="text-sm font-medium text-rose-700 underline-offset-4 hover:underline lg:mt-2 lg:inline-block"
+                >
+                  删除账号
+                </Link>
               </div>
             </article>
           ))}
