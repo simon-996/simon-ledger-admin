@@ -1,7 +1,9 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import {
+  ApiError,
   adminGet,
   adminPost,
   clearAdminToken,
@@ -12,6 +14,7 @@ import { AuthContext } from './auth-context';
 import type { AdminLoginResult, AdminToken, AdminUser } from './types';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<AdminUser | null>(null);
   const [token, setToken] = useState<AdminToken | null>(() => readAdminToken());
   const [bootstrapping, setBootstrapping] = useState(true);
@@ -26,11 +29,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const current = await adminGet<AdminUser>('/api/admin/auth/me');
         if (active) setUser(current);
-      } catch {
-        clearAdminToken();
-        if (active) {
-          setToken(null);
-          setUser(null);
+      } catch (error) {
+        if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+          clearAdminToken();
+          queryClient.clear();
+          if (active) {
+            setToken(null);
+            setUser(null);
+          }
         }
       } finally {
         if (active) setBootstrapping(false);
@@ -40,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [token, queryClient]);
 
   const login = useCallback(async (account: string, password: string) => {
     const result = await adminPost<AdminLoginResult>(
@@ -67,10 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await adminPost<void>('/api/admin/auth/logout');
     } finally {
       clearAdminToken();
+      queryClient.clear();
       setToken(null);
       setUser(null);
     }
-  }, []);
+  }, [queryClient]);
 
   const value = useMemo(
     () => ({ user, token, bootstrapping, login, logout }),

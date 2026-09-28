@@ -77,6 +77,18 @@ export async function adminPost<T>(
   });
 }
 
+export async function adminDelete<T>(
+  path: string,
+  data: unknown,
+  options: AdminRequestOptions = {},
+): Promise<T> {
+  return adminRequest<T>(path, {
+    ...options,
+    method: 'DELETE',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function adminRequest<T>(
   path: string,
   options: AdminRequestOptions = {},
