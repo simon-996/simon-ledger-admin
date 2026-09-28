@@ -13,14 +13,15 @@ import type { AdminUserRecordResp, PageResponse } from '../lib/types';
 
 export function UsersPage() {
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
   const debouncedQuery = useDebouncedValue(query.trim(), 300);
   const users = useQuery({
-    queryKey: ['admin-users', debouncedQuery],
+    queryKey: ['admin-users', debouncedQuery, page],
     queryFn: () =>
       adminGet<PageResponse<AdminUserRecordResp>>('/api/admin/users', {
         keyword: debouncedQuery,
-        page: 1,
-        pageSize: 50,
+        page,
+        pageSize: 20,
       }),
   });
 
@@ -33,7 +34,10 @@ export function UsersPage() {
           <div className="w-full sm:w-80">
             <SearchField
               value={query}
-              onChange={setQuery}
+              onChange={(value) => {
+                setQuery(value);
+                setPage(1);
+              }}
               placeholder="搜索昵称、账号或 UUID"
             />
           </div>
@@ -81,6 +85,31 @@ export function UsersPage() {
             </article>
           ))}
         </DataPanel>
+      )}
+      {users.data && users.data.total > users.data.pageSize && (
+        <nav className="mt-4 flex items-center justify-between gap-3" aria-label="用户列表分页">
+          <p className="text-sm text-slate-500">
+            第 {users.data.page} 页 · 共 {Math.ceil(users.data.total / users.data.pageSize)} 页
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((value) => Math.max(1, value - 1))}
+              disabled={page <= 1}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-ink-800 transition hover:border-slate-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              上一页
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((value) => value + 1)}
+              disabled={page * users.data.pageSize >= users.data.total}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-ink-800 transition hover:border-slate-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              下一页
+            </button>
+          </div>
+        </nav>
       )}
     </>
   );
