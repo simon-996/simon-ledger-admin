@@ -6,7 +6,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ErrorState, LoadingState } from '../components/AsyncState';
 import { DataPanel } from '../components/DataPanel';
 import { PageHeader } from '../components/PageHeader';
-import { adminDelete, adminGet } from '../lib/api';
+import { ApiError, adminDelete, adminGet } from '../lib/api';
 import type { AccountDeletionPreview, AccountDeletionRequest, DeletionLedger } from '../lib/types';
 
 function LedgerCounts({ ledger }: { ledger: DeletionLedger }) {
@@ -68,7 +68,17 @@ export function AccountDeletionPage() {
   const allSuccessorsValid = transferable.every((ledger) =>
     ledger.successors.some((candidate) => candidate.userUuid === selectedSuccessors[ledger.uuid]),
   );
-  const canDelete = confirmation === preview.userUuid && allSuccessorsValid && !deletion.isPending;
+  const needsRefresh = deletion.isError && deletion.error instanceof ApiError && deletion.error.status === 409;
+  const canDelete = confirmation === preview.userUuid && allSuccessorsValid
+    && !deletion.isPending && !needsRefresh;
+
+  async function refreshPreview() {
+    const result = await previewQuery.refetch();
+    if (!result.isError) {
+      deletion.reset();
+      setConfirmation('');
+    }
+  }
 
   function submit() {
     const currentPreview = previewQuery.data;
@@ -202,7 +212,7 @@ export function AccountDeletionPage() {
             </button>
             <button
               type="button"
-              onClick={() => void previewQuery.refetch()}
+              onClick={() => void refreshPreview()}
               disabled={previewQuery.isFetching || deletion.isPending}
               className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40"
             >

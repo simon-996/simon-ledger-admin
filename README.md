@@ -49,7 +49,7 @@ simon-ledger-api/sql/003_add_admin_console.sql
 
 该 SQL 只创建 `admin_user` 和 `admin_operation_log`，不会默认写入管理员账号。首个管理员需要生成 BCrypt 密码 hash 后手动插入 `admin_user` 表。
 
-启用账号删除前，还必须在 API 数据库执行 `simon-ledger-api/sql/006_anonymize_deleted_accounts.sql`，并部署配套的新 API；该迁移将历史流水创建人和变更日志操作者改为可空。不要让新版后台连接到未迁移的旧 API。
+启用账号删除前，还必须在 API 数据库执行 `simon-ledger-api/sql/006_anonymize_deleted_accounts.sql`，并部署配套的新 API；该迁移将历史流水创建人和变更日志操作者改为可空，并创建会话撤销重试队列。不要让新版后台连接到未迁移的旧 API。
 
 删除流程先显示影响范围。仍有其他有效成员的自有账本必须逐本指定接手人；没有其他有效成员或已软删除的自有账本会整本物理删除。他人账本中的参与人名称、分摊和流水保留，但账号关联与头像清除。管理员输入目标 UUID 并提交后不可恢复。删除只作用于云端，不会清理离线设备、本地未上传数据、数据库备份或既有服务器日志。执行生产删除前应按运维流程备份并确认目标与接手人。
 

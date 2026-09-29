@@ -109,6 +109,10 @@ test('keeps selected successors visible after a stale-preview conflict', async (
   fireEvent.click(screen.getByRole('button', { name: '永久删除云端账号' }));
 
   await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('预览已过期'));
+  expect(screen.getByRole('button', { name: '永久删除云端账号' }).hasAttribute('disabled')).toBe(true);
   expect((screen.getByLabelText('接手人：家庭账本') as HTMLSelectElement).value).toBe('next-owner');
   expect((screen.getByLabelText('输入用户 UUID 确认') as HTMLInputElement).value).toBe('target-user');
+  fireEvent.click(screen.getByRole('button', { name: '重新获取预览' }));
+  await waitFor(() => expect((screen.getByLabelText('输入用户 UUID 确认') as HTMLInputElement).value).toBe(''));
+  expect((screen.getByLabelText('接手人：家庭账本') as HTMLSelectElement).value).toBe('next-owner');
 });
