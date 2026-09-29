@@ -11,9 +11,13 @@ import type { AccountDeletionPreview, AccountDeletionRequest, DeletionLedger } f
 
 function LedgerCounts({ ledger }: { ledger: DeletionLedger }) {
   return (
-    <p className="mt-2 font-mono text-xs text-slate-500">
-      成员 {ledger.memberCount} · 参与人 {ledger.personCount} · 流水 {ledger.transactionCount}
-    </p>
+    <div className="mt-2 space-y-1 text-xs text-slate-500">
+      <p className="font-mono">成员 {ledger.memberCount} · 参与人 {ledger.personCount} · 流水 {ledger.transactionCount}</p>
+      <p>保留参与人 {ledger.retainedPersonCount} · 删除参与人 {ledger.deletedPersonCount} · 保留流水 {ledger.retainedTransactionCount} · 删除流水 {ledger.deletedTransactionCount}</p>
+      {ledger.activeMembers.length > 0 && (
+        <p>有效成员：{ledger.activeMembers.map((member) => member.nickname).join('、')}</p>
+      )}
+    </div>
   );
 }
 
@@ -59,14 +63,10 @@ export function AccountDeletionPage() {
     return <ErrorState title="删除预览不可用" message="请从用户列表重新进入。" />;
   }
 
-  const transferable = preview.ownedLedgers.filter(
-    (ledger) => !ledger.deleted && (ledger.successors?.length ?? 0) > 0,
-  );
-  const deletable = preview.ownedLedgers.filter(
-    (ledger) => ledger.deleted || (ledger.successors?.length ?? 0) === 0,
-  );
+  const transferable = preview.ownedLedgers.filter((ledger) => ledger.action === 'TRANSFER');
+  const deletable = preview.ownedLedgers.filter((ledger) => ledger.action === 'DELETE');
   const allSuccessorsValid = transferable.every((ledger) =>
-    ledger.successors?.some((candidate) => candidate.userUuid === selectedSuccessors[ledger.uuid]),
+    ledger.successors.some((candidate) => candidate.userUuid === selectedSuccessors[ledger.uuid]),
   );
   const canDelete = confirmation === preview.userUuid && allSuccessorsValid && !deletion.isPending;
 
@@ -132,7 +132,7 @@ export function AccountDeletionPage() {
                     className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-ledger-500 focus:ring-4 focus:ring-ledger-100"
                   >
                     <option value="">选择接手成员</option>
-                    {ledger.successors?.map((candidate) => (
+                    {ledger.successors.map((candidate) => (
                       <option key={candidate.userUuid} value={candidate.userUuid}>
                         {candidate.nickname} · {candidate.role}
                       </option>
@@ -172,6 +172,9 @@ export function AccountDeletionPage() {
             <p className="mt-2 text-sm leading-6 text-slate-600">
               将删除账号资料，转交 {transferable.length} 本账，彻底删除 {deletable.length} 本账。
               他人账本中的参与人和流水继续保留。
+            </p>
+            <p className="mt-2 text-sm font-medium text-ink-800">
+              保留 {preview.summary.transactionsToKeep} 条流水 · 删除 {preview.summary.transactionsToDelete} 条流水
             </p>
             <label className="mt-5 grid gap-2 text-sm font-medium text-ink-800">
               输入用户 UUID 确认

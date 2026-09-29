@@ -86,10 +86,18 @@ export type DeletionLedger = {
   uuid: string;
   name: string;
   deleted: boolean;
+  action: 'TRANSFER' | 'DELETE' | 'DETACH';
+  activeMembers: DeletionSuccessor[];
   memberCount: number;
   personCount: number;
   transactionCount: number;
-  successors?: DeletionSuccessor[];
+  retainedMemberCount: number;
+  deletedMemberCount: number;
+  retainedPersonCount: number;
+  deletedPersonCount: number;
+  retainedTransactionCount: number;
+  deletedTransactionCount: number;
+  successors: DeletionSuccessor[];
 };
 
 export type AccountDeletionPreview = {
@@ -99,6 +107,15 @@ export type AccountDeletionPreview = {
   fingerprint: string;
   ownedLedgers: DeletionLedger[];
   joinedLedgers: DeletionLedger[];
+  summary: {
+    ledgersToTransfer: number;
+    ledgersToDelete: number;
+    otherLedgers: number;
+    peopleToKeep: number;
+    peopleToDelete: number;
+    transactionsToKeep: number;
+    transactionsToDelete: number;
+  };
 };
 
 export type AccountDeletionRequest = {

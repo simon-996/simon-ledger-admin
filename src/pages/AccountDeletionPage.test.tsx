@@ -12,7 +12,12 @@ const preview = {
   ownedLedgers: [
     {
       uuid: 'shared-ledger', name: '家庭账本', deleted: false,
+      action: 'TRANSFER',
       memberCount: 3, personCount: 3, transactionCount: 8,
+      retainedMemberCount: 2, deletedMemberCount: 1,
+      retainedPersonCount: 3, deletedPersonCount: 0,
+      retainedTransactionCount: 8, deletedTransactionCount: 0,
+      activeMembers: [{ userUuid: 'next-owner', nickname: '接手成员', role: 'editor' }],
       successors: [
         { userUuid: 'next-owner', nickname: '接手成员', role: 'editor' },
         { userUuid: 'other-owner', nickname: '其他成员', role: 'viewer' },
@@ -20,13 +25,28 @@ const preview = {
     },
     {
       uuid: 'solo-ledger', name: '个人账本', deleted: false,
+      action: 'DELETE',
       memberCount: 1, personCount: 1, transactionCount: 2, successors: [],
+      retainedMemberCount: 0, deletedMemberCount: 1,
+      retainedPersonCount: 0, deletedPersonCount: 1,
+      retainedTransactionCount: 0, deletedTransactionCount: 2,
+      activeMembers: [],
     },
   ],
   joinedLedgers: [{
     uuid: 'joined-ledger', name: '他人账本', deleted: false,
+    action: 'DETACH',
     memberCount: 4, personCount: 4, transactionCount: 12,
+    retainedMemberCount: 3, deletedMemberCount: 1,
+    retainedPersonCount: 4, deletedPersonCount: 0,
+    retainedTransactionCount: 12, deletedTransactionCount: 0,
+    activeMembers: [], successors: [],
   }],
+  summary: {
+    ledgersToTransfer: 1, ledgersToDelete: 1, otherLedgers: 1,
+    peopleToKeep: 7, peopleToDelete: 1,
+    transactionsToKeep: 20, transactionsToDelete: 2,
+  },
 };
 
 function renderPage() {
@@ -57,6 +77,7 @@ test('requires an explicit successor and UUID confirmation before deleting', asy
 
   renderPage();
   const submit = await screen.findByRole('button', { name: '永久删除云端账号' });
+  expect(screen.getByText('保留 20 条流水 · 删除 2 条流水')).toBeTruthy();
   expect(submit.hasAttribute('disabled')).toBe(true);
   fireEvent.change(screen.getByLabelText('接手人：家庭账本'), { target: { value: 'next-owner' } });
   fireEvent.change(screen.getByLabelText('输入用户 UUID 确认'), { target: { value: 'target-user' } });

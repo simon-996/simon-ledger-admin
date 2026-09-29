@@ -1,6 +1,6 @@
 # Simon Ledger Admin
 
-Simon Ledger 的后台管理 Web。第一版定位为运维、客服和数据核查控制台，优先提供只读排查能力和少量止损操作，避免直接破坏用户账本数据。
+Simon Ledger 的后台管理 Web，供单个管理员核查云端数据并处理账号删除。
 
 ## 技术栈
 
@@ -18,7 +18,7 @@ Simon Ledger 的后台管理 Web。第一版定位为运维、客服和数据核
 ## 当前页面
 
 - 总览：用户、账本、待同步、同步失败和系统健康摘要。
-- 用户：按昵称、账号、UUID 搜索用户，查看账号状态和账本数量。
+- 用户：按昵称、账号、UUID 搜索和分页查看用户；预览并永久删除云端账号。
 - 账本：按账本名、owner、UUID 搜索账本，查看成员、参与人、流水和同步状态。
 - 审计：查看后台操作和同步异常日志。
 - 系统：查看 API 地址、服务健康、数据库和 Redis 状态。
@@ -34,6 +34,8 @@ GET  /api/admin/auth/me
 
 GET  /api/admin/dashboard
 GET  /api/admin/users?keyword=&page=&pageSize=
+GET  /api/admin/users/{uuid}/deletion-preview
+DELETE /api/admin/users/{uuid}
 GET  /api/admin/ledgers?keyword=&page=&pageSize=
 GET  /api/admin/audit-logs
 GET  /api/admin/system/health
@@ -46,6 +48,10 @@ simon-ledger-api/sql/003_add_admin_console.sql
 ```
 
 该 SQL 只创建 `admin_user` 和 `admin_operation_log`，不会默认写入管理员账号。首个管理员需要生成 BCrypt 密码 hash 后手动插入 `admin_user` 表。
+
+启用账号删除前，还必须在 API 数据库执行 `simon-ledger-api/sql/006_anonymize_deleted_accounts.sql`，并部署配套的新 API；该迁移将历史流水创建人和变更日志操作者改为可空。不要让新版后台连接到未迁移的旧 API。
+
+删除流程先显示影响范围。仍有其他有效成员的自有账本必须逐本指定接手人；没有其他有效成员或已软删除的自有账本会整本物理删除。他人账本中的参与人名称、分摊和流水保留，但账号关联与头像清除。管理员输入目标 UUID 并提交后不可恢复。删除只作用于云端，不会清理离线设备、本地未上传数据、数据库备份或既有服务器日志。执行生产删除前应按运维流程备份并确认目标与接手人。
 
 ## 本地运行
 
@@ -70,6 +76,7 @@ VITE_API_BASE_URL=https://ledger-api.simon996.com
 
 ```bash
 npm run lint
+npm test
 npm run build
 ```
 
