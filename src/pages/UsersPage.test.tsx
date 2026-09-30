@@ -11,6 +11,60 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+test('grants AI bookkeeping access only after a successful server update', async () => {
+  const requests: Array<{ url: string; method: string; body?: string }> = [];
+  let enabled = false;
+  vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+    const method = options?.method ?? 'GET';
+    requests.push({ url, method, body: options?.body as string | undefined });
+    if (method === 'PUT') {
+      enabled = JSON.parse(options?.body as string).enabled as boolean;
+      return Promise.resolve(new Response(JSON.stringify({ code: 0, message: 'ok' }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    }
+    return Promise.resolve(new Response(JSON.stringify({
+      code: 0, message: 'ok',
+      data: { page: 1, pageSize: 20, total: 1, records: [{
+        uuid: 'user-1', nickname: '测试用户', account: 'user@example.test', status: 1,
+        aiBookkeepingEnabled: enabled, ledgerCount: 0, joinedCount: 0,
+        createdAt: '2026-09-28T10:00:00', updatedAt: '2026-09-28T10:00:00',
+      }] },
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+  }));
+
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <MemoryRouter><UsersPage /></MemoryRouter>
+  </QueryClientProvider>);
+
+  fireEvent.click(await screen.findByRole('button', { name: '授权 AI 记账' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: '撤销 AI 记账授权' })).toBeTruthy());
+  expect(requests.some((request) => request.method === 'PUT'
+    && request.url.endsWith('/api/admin/users/user-1/ai-bookkeeping-access')
+    && request.body === '{"enabled":true}')).toBe(true);
+});
+
+test('keeps the previous grant state visible when revocation fails', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockImplementation((_url: string, options?: RequestInit) => {
+    if (options?.method === 'PUT') {
+      return Promise.resolve(new Response(JSON.stringify({ code: 500001, message: '暂时无法修改' }),
+        { status: 500, headers: { 'content-type': 'application/json' } }));
+    }
+    return Promise.resolve(new Response(JSON.stringify({ code: 0, message: 'ok', data: {
+      page: 1, pageSize: 20, total: 1, records: [{
+        uuid: 'user-2', nickname: '测试用户二', account: 'user2@example.test', status: 1,
+        aiBookkeepingEnabled: true, ledgerCount: 1, joinedCount: 0,
+        createdAt: '2026-09-28T10:00:00', updatedAt: '2026-09-28T10:00:00',
+      }],
+    } }), { status: 200, headers: { 'content-type': 'application/json' } }));
+  }));
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <MemoryRouter><UsersPage /></MemoryRouter>
+  </QueryClientProvider>);
+  fireEvent.click(await screen.findByRole('button', { name: '撤销 AI 记账授权' }));
+  await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('暂时无法修改'));
+  expect(screen.getByRole('button', { name: '撤销 AI 记账授权' })).toBeTruthy();
+  expect(screen.getByText('AI 记账：已授权')).toBeTruthy();
+});
+
 test('moves from the first server page to the next user page', async () => {
   const requestedPages: string[] = [];
   vi.stubGlobal('fetch', vi.fn().mockImplementation((rawUrl: string) => {

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -7,12 +7,13 @@ import { DataPanel } from '../components/DataPanel';
 import { PageHeader } from '../components/PageHeader';
 import { SearchField } from '../components/SearchField';
 import { StatusPill } from '../components/StatusPill';
-import { adminGet } from '../lib/api';
+import { adminGet, adminRequest } from '../lib/api';
 import { formatDateTime } from '../lib/format';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
 import type { AdminUserRecordResp, PageResponse } from '../lib/types';
 
 export function UsersPage() {
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const debouncedQuery = useDebouncedValue(query.trim(), 300);
@@ -25,12 +26,20 @@ export function UsersPage() {
         pageSize: 20,
       }),
   });
+  const grant = useMutation({
+    mutationFn: ({ uuid, enabled }: { uuid: string; enabled: boolean }) =>
+      adminRequest<void>(`/api/admin/users/${encodeURIComponent(uuid)}/ai-bookkeeping-access`, {
+        method: 'PUT',
+        body: JSON.stringify({ enabled }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+  });
 
   return (
     <>
       <PageHeader
         title="用户管理"
-        description="搜索用户、检查账号状态，并预览关联数据后删除云端账号。"
+        description="搜索用户、管理 AI 记账授权，并预览关联数据后删除云端账号。"
         action={
           <div className="w-full sm:w-80">
             <SearchField
@@ -80,10 +89,26 @@ export function UsersPage() {
                   <StatusPill tone={user.status === 1 ? 'success' : 'danger'}>
                     {user.status === 1 ? '正常' : '已禁用'}
                   </StatusPill>
+                  <p className="mt-2 text-xs text-slate-500">
+                    AI 记账：{user.aiBookkeepingEnabled ? '已授权' : '未授权'}
+                  </p>
                   <p className="mt-0 font-mono text-xs text-slate-400 lg:mt-2">
                     {formatDateTime(user.updatedAt)}
                   </p>
                 </div>
+                <button
+                  type="button"
+                  disabled={grant.isPending && grant.variables?.uuid === user.uuid}
+                  onClick={() => grant.mutate({ uuid: user.uuid, enabled: !user.aiBookkeepingEnabled })}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-ink-800 transition hover:border-ledger-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 lg:mt-2"
+                >
+                  {user.aiBookkeepingEnabled ? '撤销 AI 记账授权' : '授权 AI 记账'}
+                </button>
+                {grant.isError && grant.variables?.uuid === user.uuid && (
+                  <p role="alert" className="mt-1 text-xs text-rose-700">
+                    授权更新失败：{grant.error.message}
+                  </p>
+                )}
                 <Link
                   to={`/users/${encodeURIComponent(user.uuid)}/delete`}
                   aria-label={`删除${user.nickname}的云端账号`}

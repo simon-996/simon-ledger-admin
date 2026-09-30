@@ -38,6 +38,7 @@ export type AdminUserRecordResp = {
   nickname: string;
   account: string;
   status: number;
+  aiBookkeepingEnabled: boolean;
   ledgerCount: number;
   joinedCount: number;
   createdAt: string;
