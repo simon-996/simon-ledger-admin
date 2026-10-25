@@ -35,9 +35,11 @@ export function AdminShell() {
           </div>
           <button
             type="button"
-            className="rounded-full bg-slate-100 p-2 text-slate-700 transition active:scale-95"
+            className="inline-flex size-11 items-center justify-center rounded-full bg-slate-100 p-2 text-slate-700 transition active:scale-95"
             onClick={() => setOpen((value) => !value)}
             aria-label="切换导航"
+            aria-expanded={open}
+            aria-controls="admin-navigation"
           >
             {open ? <X size={20} /> : <List size={20} />}
           </button>
@@ -46,6 +48,7 @@ export function AdminShell() {
 
       <div className="mx-auto grid w-full max-w-[1440px] md:grid-cols-[248px_minmax(0,1fr)]">
         <aside
+          id="admin-navigation"
           className={clsx(
             'border-r border-slate-200/80 bg-white px-4 py-5 md:sticky md:top-0 md:block md:min-h-[100dvh]',
             open ? 'block' : 'hidden',
@@ -89,7 +92,7 @@ export function AdminShell() {
             <button
               type="button"
               onClick={() => void logout()}
-              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:text-rose-600 active:scale-[0.98]"
+              className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:text-rose-600 active:scale-[0.98]"
             >
               <SignOut size={16} />
               退出登录

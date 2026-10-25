@@ -70,3 +70,21 @@ test('clears cached admin data on logout', async () => {
   await waitFor(() => expect(screen.getByText('signed-out')).toBeTruthy());
   expect(client.getQueryData(['admin-users'])).toBeUndefined();
 });
+
+test('ignores a login result if logout occurred while login was running', async () => {
+  let finishLogin: (value: Response) => void = () => {};
+  vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+    if (url.includes('/login')) return new Promise<Response>((resolve) => { finishLogin = resolve; });
+    return Promise.resolve(new Response(JSON.stringify({ code: 0, data: { uuid: 'admin', account: 'admin', nickname: '管理员', role: 'super_admin', status: 1 } }), { status: 200, headers: { 'content-type': 'application/json' } }));
+  }));
+  function LoginProbe() {
+    const { token, login, logout } = useAuth();
+    return <><span>{token ? 'signed-in' : 'signed-out'}</span><button onClick={() => void login('admin', 'password').catch(() => {})}>login</button><button onClick={() => void logout()}>logout</button></>;
+  }
+  render(<QueryClientProvider client={new QueryClient()}><AuthProvider><LoginProbe /></AuthProvider></QueryClientProvider>);
+  fireEvent.click(screen.getByText('login'));
+  fireEvent.click(screen.getByText('logout'));
+  finishLogin(new Response(JSON.stringify({ code: 0, data: { tokenName: 'simon-ledger', tokenValue: 'late-login', user: { uuid: 'admin', account: 'admin', nickname: '管理员', role: 'super_admin', status: 1 } } }), { status: 200, headers: { 'content-type': 'application/json' } }));
+  await waitFor(() => expect(screen.getByText('signed-out')).toBeTruthy());
+  expect(readAdminToken()).toBeNull();
+});

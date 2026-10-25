@@ -4,7 +4,7 @@ import { FormEvent, useState } from 'react';
 import { useAuth } from '../lib/useAuth';
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, sessionMessage } = useAuth();
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -13,13 +13,13 @@ export function LoginPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalizedAccount = account.trim();
-    const normalizedPassword = password.trim();
-    if (!normalizedAccount || !normalizedPassword || submitting) return;
+
+    if (!normalizedAccount || !password || submitting) return;
 
     setSubmitting(true);
     setError(null);
     try {
-      await login(normalizedAccount, normalizedPassword);
+      await login(normalizedAccount, password);
     } catch (e) {
       setError(e instanceof Error ? e.message : '登录失败');
     } finally {
@@ -42,6 +42,7 @@ export function LoginPage() {
           </div>
         </div>
 
+        {sessionMessage && <p role="status" className="mt-4 text-sm text-rose-700">{sessionMessage}</p>}
         <form className="mt-6 grid gap-4" onSubmit={submit}>
           <label className="grid gap-2">
             <span className="text-sm font-medium text-ink-800">账号</span>
@@ -74,7 +75,7 @@ export function LoginPage() {
           )}
           <button
             type="submit"
-            disabled={submitting || !account.trim() || !password.trim()}
+            disabled={submitting || !account.trim() || !password}
             aria-busy={submitting}
             className="h-11 rounded-2xl bg-ledger-600 px-4 text-sm font-semibold text-white transition hover:bg-ledger-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-300"
           >

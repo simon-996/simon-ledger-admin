@@ -17,13 +17,13 @@ Simon Ledger 的后台管理 Web，供单个管理员核查云端数据并处理
 
 ## 当前页面
 
-- 总览：用户、账本、待同步、同步失败和系统健康摘要。
-- 用户：按昵称、账号、UUID 搜索和分页查看用户；预览并永久删除云端账号。
-- 账本：按账本名、owner、UUID 搜索账本，查看成员、参与人、流水和同步状态。
-- 审计：查看后台操作和同步异常日志。
+- 总览：用户数、云端账本数、近 7 天变更数、禁用用户数和系统健康摘要。
+- 用户：按昵称、账号、UUID 搜索和分页查看用户；按行授予或撤销 AI 记账权限；预览并永久删除云端账号。
+- 账本：按账本名或 UUID 搜索并分页查看账本，核查所有者、成员、参与人、流水和云端保存状态。云端已保存不能证明所有离线设备已同步。
+- 审计：分页查看后台操作日志；AI 授权记录显示目标账号、UUID、授权前后状态、执行者与时间，账号删除后按 API 匿名摘要显示。
 - 系统：查看 API 地址、服务健康、数据库和 Redis 状态。
 
-当前页面已接入后端 `/api/admin/*` 独立接口。后台登录态与普通 App 用户登录态隔离，前端会保存后端返回的 Sa-Token，并在后续请求中使用 `simon-ledger` 请求头访问管理接口。
+当前页面已接入后端 `/api/admin/*` 独立接口。后台登录态与普通 App 用户登录态隔离，前端会保存后端返回的 Sa-Token，并在后续请求中使用后端返回的 tokenName（默认 `simon-ledger`）请求头访问管理接口。运行中收到 401 会清除身份、token 和查询缓存并显示重新登录提示；普通业务 403 保留会话，恢复身份接口的 403 视为管理员权限失效。退出或切换会话后，旧请求结果不会进入新会话。密码按输入原样发送。
 
 ## 后端接口
 
@@ -34,10 +34,11 @@ GET  /api/admin/auth/me
 
 GET  /api/admin/dashboard
 GET  /api/admin/users?keyword=&page=&pageSize=
+PUT  /api/admin/users/{uuid}/ai-bookkeeping-access
 GET  /api/admin/users/{uuid}/deletion-preview
 DELETE /api/admin/users/{uuid}
 GET  /api/admin/ledgers?keyword=&page=&pageSize=
-GET  /api/admin/audit-logs
+GET  /api/admin/audit-logs?page=&pageSize=
 GET  /api/admin/system/health
 ```
 
@@ -49,9 +50,9 @@ simon-ledger-api/sql/003_add_admin_console.sql
 
 该 SQL 只创建 `admin_user` 和 `admin_operation_log`，不会默认写入管理员账号。首个管理员需要生成 BCrypt 密码 hash 后手动插入 `admin_user` 表。
 
-启用账号删除前，还必须在 API 数据库执行 `simon-ledger-api/sql/006_anonymize_deleted_accounts.sql`，并部署配套的新 API；该迁移将历史流水创建人和变更日志操作者改为可空，并创建会话撤销重试队列。不要让新版后台连接到未迁移的旧 API。
+已有数据库应按编号顺序升级。启用账号删除前，还必须在 API 数据库执行 `simon-ledger-api/sql/006_anonymize_deleted_accounts.sql`，并部署配套的新 API；该迁移将历史流水创建人和变更日志操作者改为可空，并创建会话撤销重试队列。启用 AI 记账授权前还需执行 `simon-ledger-api/sql/007_add_ai_bookkeeping_access.sql`；使用手动多币种映射的新版 API 需执行 `simon-ledger-api/sql/008_add_currency_rates_to_cny.sql`。全新安装从 `001_init_schema.sql` 开始，并按 API README 的迁移说明补齐后续版本；不要只执行后台建表 SQL。不要让新版后台连接到未迁移的旧 API。
 
-删除流程先显示影响范围。仍有其他有效成员的自有账本必须逐本指定接手人；没有其他有效成员或已软删除的自有账本会整本物理删除。他人账本中的参与人名称、分摊和流水保留，但账号关联与头像清除。管理员输入目标 UUID 并提交后不可恢复。删除只作用于云端，不会清理离线设备、本地未上传数据、数据库备份或既有服务器日志。执行生产删除前应按运维流程备份并确认目标与接手人。
+删除流程先显示影响范围。仍有其他有效成员的自有账本必须逐本指定接手人；没有其他有效成员或已软删除的自有账本会整本物理删除。他人账本中的参与人名称、分摊和流水保留，但账号关联与头像清除。预览刷新（含窗口重新聚焦或网络恢复）后会清空 UUID 确认，刷新期间不能提交；接手人选项和最终确认区提供可辨识的账号与 UUID。管理员输入目标 UUID 并提交后不可恢复。删除只作用于云端，不会清理离线设备、本地未上传数据、数据库备份或既有服务器日志。执行生产删除前应按运维流程备份并确认目标与接手人。
 
 ## 本地运行
 
@@ -91,10 +92,11 @@ bash deploy_admin.sh
 本地脚本会执行：
 
 1. `npm ci`
-2. `VITE_API_BASE_URL=... npm run build`
-3. 打包 `dist`、`Dockerfile`、`nginx.conf` 为 `admin.tar.gz`
-4. 上传到服务器 `/apps/simon_ledger/admin.tar.gz`
-5. 默认执行服务器上已有的 `/apps/simon_ledger/scripts/deploy_admin.sh`
+2. `npm run lint`、`npm test`
+3. `VITE_API_BASE_URL=... npm run build`
+4. 打包 `dist`、`Dockerfile`、`nginx.conf` 为 `admin.tar.gz`
+5. 上传到服务器 `/apps/simon_ledger/admin.tar.gz`
+6. 默认执行服务器上已有的 `/apps/simon_ledger/scripts/deploy_admin.sh`
 
 可用环境变量：
 

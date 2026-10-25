@@ -1,6 +1,6 @@
 import { ArrowLeft, WarningCircle } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { ErrorState, LoadingState } from '../components/AsyncState';
@@ -26,7 +26,7 @@ export function AccountDeletionPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedSuccessors, setSelectedSuccessors] = useState<Record<string, string>>({});
-  const [confirmation, setConfirmation] = useState('');
+  const [confirmation, setConfirmation] = useState({ value: '', fingerprint: '', updatedAt: 0 });
   const previewQuery = useQuery({
     queryKey: ['admin-account-deletion-preview', userUuid],
     queryFn: () => adminGet<AccountDeletionPreview>(
@@ -35,6 +35,9 @@ export function AccountDeletionPage() {
     enabled: Boolean(userUuid),
     staleTime: 0,
   });
+  useEffect(() => {
+    if (previewQuery.isFetching) setConfirmation({ value: '', fingerprint: '', updatedAt: 0 });
+  }, [previewQuery.isFetching]);
   const deletion = useMutation({
     mutationFn: ({ preview, request }: { preview: AccountDeletionPreview; request: AccountDeletionRequest }) =>
       adminDelete<unknown>(`/api/admin/users/${encodeURIComponent(preview.userUuid)}`, request),
@@ -69,14 +72,17 @@ export function AccountDeletionPage() {
     ledger.successors.some((candidate) => candidate.userUuid === selectedSuccessors[ledger.uuid]),
   );
   const needsRefresh = deletion.isError && deletion.error instanceof ApiError && deletion.error.status === 409;
-  const canDelete = confirmation === preview.userUuid && allSuccessorsValid
+  const confirmedSnapshot = confirmation.fingerprint === preview.fingerprint
+    && confirmation.updatedAt === previewQuery.dataUpdatedAt;
+  const canDelete = confirmedSnapshot && confirmation.value === preview.userUuid && allSuccessorsValid
+    && !previewQuery.isFetching
     && !deletion.isPending && !needsRefresh;
 
   async function refreshPreview() {
     const result = await previewQuery.refetch();
     if (!result.isError) {
       deletion.reset();
-      setConfirmation('');
+      setConfirmation({ value: '', fingerprint: '', updatedAt: 0 });
     }
   }
 
@@ -98,7 +104,7 @@ export function AccountDeletionPage() {
 
   return (
     <>
-      <Link to="/users" className="mb-5 inline-flex items-center gap-2 text-sm text-slate-600 hover:text-ink-950">
+      <Link to="/users" className="mb-5 inline-flex min-h-11 items-center gap-2 text-sm text-slate-600 hover:text-ink-950">
         <ArrowLeft size={16} /> 返回用户列表
       </Link>
       <PageHeader
@@ -144,7 +150,7 @@ export function AccountDeletionPage() {
                     <option value="">选择接手成员</option>
                     {ledger.successors.map((candidate) => (
                       <option key={candidate.userUuid} value={candidate.userUuid}>
-                        {candidate.nickname} · {candidate.role}
+                        {candidate.nickname} · {candidate.account ? `${candidate.account} · ` : ''}{candidate.userUuid} · {candidate.role}
                       </option>
                     ))}
                   </select>
@@ -186,11 +192,17 @@ export function AccountDeletionPage() {
             <p className="mt-2 text-sm font-medium text-ink-800">
               保留 {preview.summary.transactionsToKeep} 条流水 · 删除 {preview.summary.transactionsToDelete} 条流水
             </p>
+            {transferable.map((ledger) => {
+              const successor = ledger.successors.find((candidate) => candidate.userUuid === selectedSuccessors[ledger.uuid]);
+              return <p key={ledger.uuid} className="mt-2 break-all text-sm text-slate-600">{ledger.name} → {successor ? [successor.nickname, successor.account, successor.userUuid].filter(Boolean).join(' · ') : '尚未选择接手人'}</p>;
+            })}
+            <p role="status" className="mt-3 text-xs text-slate-500">{previewQuery.isFetching ? '正在刷新影响范围，暂不可删除。' : '预览刷新后须重新输入 UUID 确认。'}</p>
             <label className="mt-5 grid gap-2 text-sm font-medium text-ink-800">
               输入用户 UUID 确认
               <input
-                value={confirmation}
-                onChange={(event) => setConfirmation(event.target.value)}
+                value={confirmedSnapshot ? confirmation.value : ''}
+                disabled={previewQuery.isFetching}
+                onChange={(event) => setConfirmation({ value: event.target.value, fingerprint: preview.fingerprint, updatedAt: previewQuery.dataUpdatedAt })}
                 autoComplete="off"
                 spellCheck={false}
                 className="h-11 w-full rounded-xl border border-slate-200 px-3 font-mono text-sm outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-100"
@@ -214,7 +226,7 @@ export function AccountDeletionPage() {
               type="button"
               onClick={() => void refreshPreview()}
               disabled={previewQuery.isFetching || deletion.isPending}
-              className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+              className="mt-3 min-h-11 w-full rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40"
             >
               重新获取预览
             </button>

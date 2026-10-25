@@ -6,6 +6,7 @@ export type AuthContextValue = {
   user: AdminUser | null;
   token: AdminToken | null;
   bootstrapping: boolean;
+  sessionMessage?: string | null;
   login: (account: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 };

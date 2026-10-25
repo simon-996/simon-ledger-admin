@@ -1,4 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { Pagination } from '../components/Pagination';
+import { AuditTarget } from '../components/AuditTarget';
 
 import { EmptyState, ErrorState, LoadingState } from '../components/AsyncState';
 import { DataPanel } from '../components/DataPanel';
@@ -9,11 +12,12 @@ import { formatDateTime } from '../lib/format';
 import type { AdminAuditLogResp, PageResponse } from '../lib/types';
 
 export function AuditPage() {
+  const [page, setPage] = useState(1);
   const auditLogs = useQuery({
-    queryKey: ['admin-audit-logs'],
+    queryKey: ['admin-audit-logs', page],
     queryFn: () =>
       adminGet<PageResponse<AdminAuditLogResp>>('/api/admin/audit-logs', {
-        page: 1,
+        page,
         pageSize: 50,
       }),
   });
@@ -43,7 +47,7 @@ export function AuditPage() {
                 <p className="text-sm font-medium text-ink-950">
                   {log.action}
                 </p>
-                <p className="mt-1 text-sm text-slate-500">{log.target}</p>
+                <AuditTarget log={log} />
               </div>
               <div>
                 <p className="text-sm text-slate-500">执行者</p>
@@ -61,6 +65,7 @@ export function AuditPage() {
           ))}
         </DataPanel>
       )}
+      {auditLogs.data && <Pagination label="审计日志分页" page={page} pageSize={auditLogs.data.pageSize} total={auditLogs.data.total} busy={auditLogs.isFetching} onChange={setPage} />}
     </>
   );
 }

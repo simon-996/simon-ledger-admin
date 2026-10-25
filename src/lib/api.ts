@@ -6,6 +6,12 @@ export const apiBaseUrl = (
 
 const tokenStorageKey = 'simon-ledger-admin-token';
 const DEFAULT_TIMEOUT_MS = 15000;
+export const sessionExpiredEvent = 'admin-session-expired';
+let sessionVersion = 0;
+
+function assertCurrentSession(version: number) {
+  if (version !== sessionVersion) throw new ApiError('登录会话已变更，请重新操作');
+}
 
 export type ApiEnvelope<T> = {
   code: number;
@@ -37,10 +43,12 @@ export function readAdminToken(): AdminToken | null {
 }
 
 export function saveAdminToken(token: AdminToken) {
+  sessionVersion += 1;
   window.localStorage.setItem(tokenStorageKey, JSON.stringify(token));
 }
 
 export function clearAdminToken() {
+  sessionVersion += 1;
   window.localStorage.removeItem(tokenStorageKey);
 }
 
@@ -103,6 +111,7 @@ export async function adminRequest<T>(
   }
 
   const token = readAdminToken();
+  const version = sessionVersion;
   if (token) {
     requestHeaders.set(token.name, token.value);
   }
@@ -124,7 +133,14 @@ export async function adminRequest<T>(
     window.clearTimeout(timeout);
   }
 
+  assertCurrentSession(version);
+  if (response.status === 401 && token) {
+    clearAdminToken();
+    window.dispatchEvent(new Event(sessionExpiredEvent));
+    throw new ApiError('登录已失效，请重新登录', 401);
+  }
   const envelope = await parseEnvelope<T>(response);
+  assertCurrentSession(version);
   if (!response.ok || envelope.code !== 0) {
     throw new ApiError(
       envelope.message || '请求失败',

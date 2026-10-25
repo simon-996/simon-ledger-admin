@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 
 import { EmptyState, ErrorState, LoadingState } from '../components/AsyncState';
 import { DataPanel } from '../components/DataPanel';
+import { Pagination } from '../components/Pagination';
 import { PageHeader } from '../components/PageHeader';
 import { SearchField } from '../components/SearchField';
 import { StatusPill } from '../components/StatusPill';
@@ -13,7 +14,6 @@ import { useDebouncedValue } from '../lib/useDebouncedValue';
 import type { AdminUserRecordResp, PageResponse } from '../lib/types';
 
 export function UsersPage() {
-  const queryClient = useQueryClient();
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const debouncedQuery = useDebouncedValue(query.trim(), 300);
@@ -26,14 +26,7 @@ export function UsersPage() {
         pageSize: 20,
       }),
   });
-  const grant = useMutation({
-    mutationFn: ({ uuid, enabled }: { uuid: string; enabled: boolean }) =>
-      adminRequest<void>(`/api/admin/users/${encodeURIComponent(uuid)}/ai-bookkeeping-access`, {
-        method: 'PUT',
-        body: JSON.stringify({ enabled }),
-      }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
-  });
+
 
   return (
     <>
@@ -96,23 +89,11 @@ export function UsersPage() {
                     {formatDateTime(user.updatedAt)}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  disabled={grant.isPending && grant.variables?.uuid === user.uuid}
-                  onClick={() => grant.mutate({ uuid: user.uuid, enabled: !user.aiBookkeepingEnabled })}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-ink-800 transition hover:border-ledger-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 lg:mt-2"
-                >
-                  {user.aiBookkeepingEnabled ? '撤销 AI 记账授权' : '授权 AI 记账'}
-                </button>
-                {grant.isError && grant.variables?.uuid === user.uuid && (
-                  <p role="alert" className="mt-1 text-xs text-rose-700">
-                    授权更新失败：{grant.error.message}
-                  </p>
-                )}
+                <GrantControl user={user} />
                 <Link
                   to={`/users/${encodeURIComponent(user.uuid)}/delete`}
                   aria-label={`删除${user.nickname}的云端账号`}
-                  className="text-sm font-medium text-rose-700 underline-offset-4 hover:underline lg:mt-2 lg:inline-block"
+                  className="inline-flex min-h-11 items-center text-sm font-medium text-rose-700 underline-offset-4 hover:underline lg:mt-2"
                 >
                   删除账号
                 </Link>
@@ -121,31 +102,30 @@ export function UsersPage() {
           ))}
         </DataPanel>
       )}
-      {users.data && users.data.total > users.data.pageSize && (
-        <nav className="mt-4 flex items-center justify-between gap-3" aria-label="用户列表分页">
-          <p className="text-sm text-slate-500">
-            第 {users.data.page} 页 · 共 {Math.ceil(users.data.total / users.data.pageSize)} 页
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPage((value) => Math.max(1, value - 1))}
-              disabled={page <= 1}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-ink-800 transition hover:border-slate-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              上一页
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((value) => value + 1)}
-              disabled={page * users.data.pageSize >= users.data.total}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-ink-800 transition hover:border-slate-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              下一页
-            </button>
-          </div>
-        </nav>
-      )}
+      {users.data && <Pagination label="用户列表分页" page={page} pageSize={users.data.pageSize} total={users.data.total} busy={users.isFetching} onChange={setPage} />}
     </>
   );
+}
+
+function GrantControl({ user }: { user: AdminUserRecordResp }) {
+  const queryClient = useQueryClient();
+  const grant = useMutation({
+    mutationFn: ({ uuid, enabled }: { uuid: string; enabled: boolean }) =>
+      adminRequest<void>(`/api/admin/users/${encodeURIComponent(uuid)}/ai-bookkeeping-access`, {
+        method: 'PUT',
+        body: JSON.stringify({ enabled }),
+      }),
+    onSuccess: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+      queryClient.invalidateQueries({ queryKey: ['admin-audit-logs'] }),
+    ]),
+  });
+  return <>
+    <button type="button" disabled={grant.isPending} aria-busy={grant.isPending}
+      onClick={() => grant.mutate({ uuid: user.uuid, enabled: !user.aiBookkeepingEnabled })}
+      className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-ink-800 transition hover:border-ledger-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 lg:mt-2">
+      {user.aiBookkeepingEnabled ? '撤销 AI 记账授权' : '授权 AI 记账'}
+    </button>
+    {grant.isError && <p role="alert" className="mt-1 text-xs text-rose-700">授权更新失败：{grant.error.message}</p>}
+  </>;
 }

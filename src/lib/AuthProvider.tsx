@@ -9,6 +9,7 @@ import {
   clearAdminToken,
   readAdminToken,
   saveAdminToken,
+  sessionExpiredEvent,
 } from './api';
 import { AuthContext } from './auth-context';
 import type { AdminLoginResult, AdminToken, AdminUser } from './types';
@@ -18,6 +19,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [token, setToken] = useState<AdminToken | null>(() => readAdminToken());
   const [bootstrapping, setBootstrapping] = useState(true);
+  const [sessionMessage, setSessionMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const expire = () => {
+      void queryClient.cancelQueries();
+      queryClient.clear();
+      setUser(null);
+      setToken(null);
+      setBootstrapping(false);
+      setSessionMessage('登录已失效，请重新登录');
+    };
+    window.addEventListener(sessionExpiredEvent, expire);
+    return () => window.removeEventListener(sessionExpiredEvent, expire);
+  }, [queryClient]);
 
   useEffect(() => {
     let active = true;
@@ -30,13 +45,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const current = await adminGet<AdminUser>('/api/admin/auth/me');
         if (active) setUser(current);
       } catch (error) {
-        if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        if (active && error instanceof ApiError && error.status === 403
+          && readAdminToken()?.value === token?.value) {
           clearAdminToken();
+          void queryClient.cancelQueries();
           queryClient.clear();
-          if (active) {
-            setToken(null);
-            setUser(null);
-          }
+          setToken(null);
+          setUser(null);
+          setSessionMessage('管理员权限已失效，请重新登录');
         }
       } finally {
         if (active) setBootstrapping(false);
@@ -63,25 +79,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       name: result.tokenName,
       value: result.tokenValue,
     };
+    queryClient.clear();
     saveAdminToken(nextToken);
+    setSessionMessage(null);
     setToken(nextToken);
     setUser(result.user);
-  }, []);
+  }, [queryClient]);
 
   const logout = useCallback(async () => {
-    try {
-      await adminPost<void>('/api/admin/auth/logout');
-    } finally {
-      clearAdminToken();
-      queryClient.clear();
-      setToken(null);
-      setUser(null);
-    }
+    const request = adminPost<void>('/api/admin/auth/logout');
+    clearAdminToken();
+    void queryClient.cancelQueries();
+    queryClient.clear();
+    setToken(null);
+    setUser(null);
+    setSessionMessage(null);
+    // Local logout takes effect immediately, including while the server is offline.
+    await request.catch(() => {});
   }, [queryClient]);
 
   const value = useMemo(
-    () => ({ user, token, bootstrapping, login, logout }),
-    [user, token, bootstrapping, login, logout],
+    () => ({ user, token, bootstrapping, login, logout, sessionMessage }),
+    [user, token, bootstrapping, login, logout, sessionMessage],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

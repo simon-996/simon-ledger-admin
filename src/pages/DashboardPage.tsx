@@ -7,6 +7,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 
 import { ErrorState, LoadingState } from '../components/AsyncState';
+import { AuditTarget } from '../components/AuditTarget';
 import { DataPanel } from '../components/DataPanel';
 import { MetricCard } from '../components/MetricCard';
 import { PageHeader } from '../components/PageHeader';
@@ -110,9 +111,8 @@ export function DashboardPage() {
                 <p className="text-sm font-medium text-ink-950">
                   {log.action}
                 </p>
-                <p className="mt-1 text-sm text-slate-500">
-                  {log.actor} · {log.target}
-                </p>
+                <p className="mt-1 text-sm text-slate-500">{log.actor}</p>
+                <AuditTarget log={log} />
               </div>
               <p className="font-mono text-xs text-slate-400">
                 {formatDateTime(log.createdAt)}
@@ -122,6 +122,8 @@ export function DashboardPage() {
         </DataPanel>
 
         <DataPanel title="系统健康">
+          {health.isLoading && <LoadingState title="正在加载系统健康" />}
+          {health.isError && <ErrorState title="系统健康加载失败" message={health.error.message} />}
           {health.data?.items.map((item) => (
             <div
               key={item.name}

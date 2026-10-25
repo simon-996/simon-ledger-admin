@@ -79,6 +79,7 @@ test('requires an explicit successor and UUID confirmation before deleting', asy
   const submit = await screen.findByRole('button', { name: '永久删除云端账号' });
   expect(screen.getByText('保留 20 条流水 · 删除 2 条流水')).toBeTruthy();
   expect(submit.hasAttribute('disabled')).toBe(true);
+  expect(screen.getByRole('option', { name: '接手成员 · next-owner · editor' })).toBeTruthy();
   fireEvent.change(screen.getByLabelText('接手人：家庭账本'), { target: { value: 'next-owner' } });
   fireEvent.change(screen.getByLabelText('输入用户 UUID 确认'), { target: { value: 'target-user' } });
   expect(submit.hasAttribute('disabled')).toBe(false);
@@ -115,4 +116,25 @@ test('keeps selected successors visible after a stale-preview conflict', async (
   fireEvent.click(screen.getByRole('button', { name: '重新获取预览' }));
   await waitFor(() => expect((screen.getByLabelText('输入用户 UUID 确认') as HTMLInputElement).value).toBe(''));
   expect((screen.getByLabelText('接手人：家庭账本') as HTMLSelectElement).value).toBe('next-owner');
+});
+
+test('disables deletion throughout a refresh and requires confirmation even when its fingerprint is unchanged', async () => {
+  let completeRefresh: (response: Response) => void = () => {};
+  let calls = 0;
+  const makeResponse = () => new Response(JSON.stringify({ code: 0, message: 'ok', data: preview }), { status: 200, headers: { 'content-type': 'application/json' } });
+  vi.stubGlobal('fetch', vi.fn().mockImplementation(() => {
+    calls += 1;
+    return calls === 1 ? Promise.resolve(makeResponse()) : new Promise<Response>((resolve) => { completeRefresh = resolve; });
+  }));
+  renderPage();
+  await screen.findByRole('button', { name: '永久删除云端账号' });
+  fireEvent.change(screen.getByLabelText('接手人：家庭账本'), { target: { value: 'next-owner' } });
+  fireEvent.change(screen.getByLabelText('输入用户 UUID 确认'), { target: { value: 'target-user' } });
+  fireEvent.click(screen.getByRole('button', { name: '重新获取预览' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: '永久删除云端账号' }).hasAttribute('disabled')).toBe(true));
+  expect((screen.getByLabelText('输入用户 UUID 确认') as HTMLInputElement).value).toBe('');
+  expect(screen.getByLabelText('输入用户 UUID 确认').hasAttribute('disabled')).toBe(true);
+  completeRefresh(makeResponse());
+  await waitFor(() => expect(screen.getByLabelText('输入用户 UUID 确认').hasAttribute('disabled')).toBe(false));
+  expect(screen.getByRole('button', { name: '永久删除云端账号' }).hasAttribute('disabled')).toBe(true);
 });

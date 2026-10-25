@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { EmptyState, ErrorState, LoadingState } from '../components/AsyncState';
 import { DataPanel } from '../components/DataPanel';
+import { Pagination } from '../components/Pagination';
 import { PageHeader } from '../components/PageHeader';
 import { SearchField } from '../components/SearchField';
 import { StatusPill } from '../components/StatusPill';
@@ -14,7 +15,8 @@ import type { AdminLedgerRecordResp, PageResponse } from '../lib/types';
 type StatusTone = 'success' | 'warning' | 'danger' | 'neutral';
 
 const ledgerStatusMeta: Record<string, { label: string; tone: StatusTone }> = {
-  synced: { label: '已同步', tone: 'success' },
+  cloud_saved: { label: '云端已保存', tone: 'success' },
+  synced: { label: '云端已保存', tone: 'success' },
   pending: { label: '同步中', tone: 'warning' },
   failed: { label: '同步异常', tone: 'danger' },
 };
@@ -25,13 +27,14 @@ function ledgerStatus(status: string) {
 
 export function LedgersPage() {
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
   const debouncedQuery = useDebouncedValue(query.trim(), 300);
   const ledgers = useQuery({
-    queryKey: ['admin-ledgers', debouncedQuery],
+    queryKey: ['admin-ledgers', debouncedQuery, page],
     queryFn: () =>
       adminGet<PageResponse<AdminLedgerRecordResp>>('/api/admin/ledgers', {
         keyword: debouncedQuery,
-        page: 1,
+        page,
         pageSize: 50,
       }),
   });
@@ -40,12 +43,12 @@ export function LedgersPage() {
     <>
       <PageHeader
         title="账本管理"
-        description="客服排查的核心入口。优先看 owner、成员数、流水数、同步状态和更新时间。"
+        description="查看所有者、成员、流水和云端保存状态。设备是否完成同步需在对应设备核查。"
         action={
           <div className="w-full sm:w-80">
             <SearchField
               value={query}
-              onChange={setQuery}
+              onChange={(value) => { setQuery(value); setPage(1); }}
               placeholder="搜索账本或 UUID"
             />
           </div>
@@ -109,6 +112,7 @@ export function LedgersPage() {
           })}
         </DataPanel>
       )}
+      {ledgers.data && <Pagination label="账本列表分页" page={page} pageSize={ledgers.data.pageSize} total={ledgers.data.total} busy={ledgers.isFetching} onChange={setPage} />}
     </>
   );
 }

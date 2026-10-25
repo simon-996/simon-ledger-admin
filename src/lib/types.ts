@@ -62,6 +62,10 @@ export type AdminAuditLogResp = {
   actor: string;
   action: string;
   target: string;
+  targetUuid?: string | null;
+  targetAccount?: string | null;
+  previousValue?: boolean | null;
+  newValue?: boolean | null;
   level: string;
   createdAt: string;
 };
@@ -78,6 +82,7 @@ export type PageResponse<T> = {
 };
 
 export type DeletionSuccessor = {
+  account?: string | null;
   userUuid: string;
   nickname: string;
   role: string;
